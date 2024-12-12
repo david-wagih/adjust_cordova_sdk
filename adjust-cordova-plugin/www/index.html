@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Adjust Deep Link Test</title>
+    <script type="text/javascript" src="cordova.js"></script>
+    <script type="text/javascript">
+        document.addEventListener('deviceready', onDeviceReady, false);
+
+        function onDeviceReady() {
+            // Set up deep link handling
+            AdjustDeeplink.setDeferredDeeplinkCallback(function(deeplinkUrl) {
+                console.log('Received deeplink:', deeplinkUrl);
+                document.getElementById('deeplinkResult').innerHTML = 
+                    'Received deeplink: ' + deeplinkUrl;
+            });
+        }
+    </script>
+</head>
+<body>
+    <h1>Adjust Deep Link Test</h1>
+    <div id="deeplinkResult">Waiting for deep link...</div>
+</body>
+</html> 
