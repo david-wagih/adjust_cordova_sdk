@@ -779,6 +779,51 @@
     }];
 }
 
+- (void)getDeepLinkData:(CDVInvokedUrlCommand *)command {
+    [Adjust lastDeeplinkWithCompletionHandler:^(NSURL * _Nullable lastDeeplink) {
+        NSMutableDictionary *dictionary = [NSMutableDictionary dictionary];
+        
+        if (lastDeeplink != nil) {
+            // Get deep link URL
+            [self addValueOrEmpty:[lastDeeplink absoluteString] 
+                         withKey:@"url" 
+                    toDictionary:dictionary];
+            
+            // Parse URL components
+            NSURLComponents *components = [[NSURLComponents alloc] initWithURL:lastDeeplink 
+                                                     resolvingAgainstBaseURL:NO];
+            
+            // Add query parameters if they exist
+            if (components.queryItems) {
+                NSMutableDictionary *params = [NSMutableDictionary dictionary];
+                for (NSURLQueryItem *item in components.queryItems) {
+                    [params setObject:item.value ?: @"" forKey:item.name];
+                }
+                [dictionary setObject:params forKey:@"parameters"];
+            }
+            
+            // Add path
+            if (components.path) {
+                [dictionary setObject:components.path forKey:@"path"];
+            }
+            
+            // Add scheme
+            if (components.scheme) {
+                [dictionary setObject:components.scheme forKey:@"scheme"];
+            }
+            
+            // Add host
+            if (components.host) {
+                [dictionary setObject:components.host forKey:@"host"];
+            }
+        }
+        
+        CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK 
+                                                      messageAsDictionary:dictionary];
+        [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+    }];
+}
+
 #pragma mark App Tracking Authorization
 
 - (void)requestAppTrackingAuthorization:(CDVInvokedUrlCommand *)command {

@@ -65,6 +65,7 @@
 - (void)processDeeplink:(CDVInvokedUrlCommand *)command;
 - (void)processAndResolveDeeplink:(CDVInvokedUrlCommand *)command;
 - (void)getLastDeeplink:(CDVInvokedUrlCommand *)command;
+- (void)getDeepLinkData:(CDVInvokedUrlCommand *)command;
 // App Tracking Authorization
 - (void)requestAppTrackingAuthorization:(CDVInvokedUrlCommand *)command;
 - (void)getAppTrackingAuthorizationStatus:(CDVInvokedUrlCommand *)command;
