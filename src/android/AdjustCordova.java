@@ -38,6 +38,7 @@ public class AdjustCordova extends CordovaPlugin implements
     private CallbackContext sessionTrackingSucceededCallbackContext;
     private CallbackContext sessionTrackingFailedCallbackContext;
     private CallbackContext deferredDeeplinkCallbackContext;
+    private CallbackContext deepLinkDataCallbackContext;
 
     @Override
     public boolean execute(String action, final JSONArray args, CallbackContext callbackContext) throws JSONException {
@@ -189,6 +190,7 @@ public class AdjustCordova extends CordovaPlugin implements
             pluginResult.setKeepCallback(true);
             callbackContext.sendPluginResult(pluginResult);
         } else if (action.equals(COMMAND_GET_DEEP_LINK_DATA)) {
+            deepLinkDataCallbackContext = callbackContext;
             executeGetDeepLinkData(callbackContext);
             return true;
         } else {
@@ -1126,26 +1128,24 @@ public class AdjustCordova extends CordovaPlugin implements
     }
 
     private void executeGetDeepLinkData(final CallbackContext callbackContext) {
-        if (deferredDeeplink != null) {
-            PluginResult pluginResult = new PluginResult(Status.OK, deferredDeeplink.toString());
-            pluginResult.setKeepCallback(true);
-            callbackContext.sendPluginResult(pluginResult);
-            return;
-        }
-        
         Activity activity = cordova.getActivity();
         Intent intent = activity.getIntent();
         Uri data = intent.getData();
         
-        if (data != null) {
-            PluginResult pluginResult = new PluginResult(Status.OK, data.toString());
-            pluginResult.setKeepCallback(true);
-            callbackContext.sendPluginResult(pluginResult);
+        if (deferredDeeplink != null) {
+            sendDeepLinkData(deferredDeeplink.toString(), callbackContext);
+            deferredDeeplink = null;  // Clear after sending
+        } else if (data != null) {
+            sendDeepLinkData(data.toString(), callbackContext);
         } else {
-            PluginResult pluginResult = new PluginResult(Status.OK, (String)null);
-            pluginResult.setKeepCallback(true);
-            callbackContext.sendPluginResult(pluginResult);
+            sendDeepLinkData(null, callbackContext);
         }
+    }
+
+    private void sendDeepLinkData(String deepLinkData, CallbackContext callbackContext) {
+        PluginResult pluginResult = new PluginResult(Status.OK, deepLinkData);
+        pluginResult.setKeepCallback(true);
+        callbackContext.sendPluginResult(pluginResult);
     }
 
     @Override
@@ -1156,6 +1156,11 @@ public class AdjustCordova extends CordovaPlugin implements
         if (data != null) {
             clickTime = System.currentTimeMillis();
             processDeepLinkData(data);
+            
+            // Send the deep link data to JavaScript if callback is registered
+            if (deepLinkDataCallbackContext != null) {
+                sendDeepLinkData(data.toString(), deepLinkDataCallbackContext);
+            }
         }
     }
 
@@ -1164,12 +1169,15 @@ public class AdjustCordova extends CordovaPlugin implements
             return;
         }
 
-        // Store for deferred processing if SDK not initialized yet
         Adjust.isEnabled(this.cordova.getActivity().getApplicationContext(), new OnIsEnabledListener() {
             @Override
             public void onIsEnabledRead(boolean isEnabled) {
                 if (!isEnabled) {
                     deferredDeeplink = deeplink;
+                    // Send deferred deep link data to JavaScript if callback is registered
+                    if (deepLinkDataCallbackContext != null) {
+                        sendDeepLinkData(deeplink.toString(), deepLinkDataCallbackContext);
+                    }
                     return;
                 }
                 // Process the deeplink
