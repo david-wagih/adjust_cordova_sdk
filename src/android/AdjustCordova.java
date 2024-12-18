@@ -433,6 +433,29 @@ public class AdjustCordova extends CordovaPlugin implements
             adjustConfig.setOnDeferredDeeplinkResponseListener(this);
         }
 
+        if (deepLinkDataCallbackContext != null) {
+            adjustConfig.setOnDeeplinkResponseListener(new OnDeeplinkResponseListener() {
+                @Override
+                public boolean launchReceivedDeeplink(Uri deeplink) {
+                    if (deeplink != null) {
+                        sendDeepLinkData(deeplink.toString(), deepLinkDataCallbackContext);
+                    }
+                    return isDeferredDeeplinkOpeningEnabled;
+                }
+            });
+        }
+
+        // Process any pending deep link
+        Activity activity = cordova.getActivity();
+        Intent intent = activity.getIntent();
+        Uri data = intent.getData();
+        if (data != null) {
+            processDeepLinkData(data);
+            if (deepLinkDataCallbackContext != null) {
+                sendDeepLinkData(data.toString(), deepLinkDataCallbackContext);
+            }
+        }
+
         // Start SDK.
         Adjust.initSdk(adjustConfig);
     }

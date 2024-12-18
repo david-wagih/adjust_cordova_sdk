@@ -7,6 +7,7 @@ function AdjustConfig(appToken, environment) {
     this.sessionTrackingFailedCallback = null;
     this.deferredDeeplinkCallback = null;
     this.skanUpdatedCallback = null;
+    this.deeplinkCallbackListener = null;
 
     // Common configuration fields
     this.appToken = appToken;
@@ -116,6 +117,12 @@ AdjustConfig.prototype.setDeferredDeeplinkCallback = function(callback) {
 };
 AdjustConfig.prototype.hasDeferredDeeplinkCallback = function() {
     return this.deferredDeeplinkCallback !== null;
+};
+
+AdjustConfig.prototype.setDeeplinkCallbackListener = function(callback) {
+    if (typeof callback === 'function') {
+        this.deeplinkCallbackListener = callback;
+    }
 };
 
 
@@ -258,5 +265,6 @@ AdjustConfig.prototype.setUrlStrategy = function(urlStrategyDomains, useSubdomai
     this.useSubdomains = useSubdomains;
     this.isDataResidency = isDataResidency;
 };
+
 
 module.exports = AdjustConfig;
