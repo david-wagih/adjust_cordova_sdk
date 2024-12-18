@@ -18,7 +18,6 @@ import org.apache.cordova.PluginResult;
 import org.apache.cordova.CordovaPlugin;
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.PluginResult.Status;
-
 import static com.adjust.sdk.AdjustCordovaUtils.*;
 
 public class AdjustCordova extends CordovaPlugin implements
@@ -431,18 +430,6 @@ public class AdjustCordova extends CordovaPlugin implements
         // Deferred deeplink callback listener.
         if (deferredDeeplinkCallbackContext != null) {
             adjustConfig.setOnDeferredDeeplinkResponseListener(this);
-        }
-
-        if (deepLinkDataCallbackContext != null) {
-            adjustConfig.setOnDeeplinkResponseListener(new OnDeeplinkResponseListener() {
-                @Override
-                public boolean launchReceivedDeeplink(Uri deeplink) {
-                    if (deeplink != null) {
-                        sendDeepLinkData(deeplink.toString(), deepLinkDataCallbackContext);
-                    }
-                    return isDeferredDeeplinkOpeningEnabled;
-                }
-            });
         }
 
         // Process any pending deep link
