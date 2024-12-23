@@ -10,6 +10,7 @@ import java.util.Map;
 import android.net.Uri;
 import android.content.Intent;
 import android.app.Activity;
+import android.util.Log;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -27,6 +28,7 @@ public class AdjustCordova extends CordovaPlugin implements
         OnSessionTrackingSucceededListener,
         OnSessionTrackingFailedListener,
         OnDeferredDeeplinkResponseListener {
+    private static final String TAG = "Adjust-Cordova";
     private static final String COMMAND_GET_DEEP_LINK_DATA = "getDeepLinkData";
     private boolean isDeferredDeeplinkOpeningEnabled = true;
     private Uri deferredDeeplink = null;
@@ -1138,35 +1140,52 @@ public class AdjustCordova extends CordovaPlugin implements
     }
 
     private void executeGetDeepLinkData(final CallbackContext callbackContext) {
+        Log.d(TAG, "🔗 Adjust: Getting deep link data");
+
         Activity activity = cordova.getActivity();
         Intent intent = activity.getIntent();
         Uri data = intent.getData();
-        
+
         if (deferredDeeplink != null) {
+            Log.d(TAG, "🔗 Adjust: Returning deferred deep link: " + deferredDeeplink.toString());
             sendDeepLinkData(deferredDeeplink.toString(), callbackContext);
             deferredDeeplink = null;  // Clear after sending
         } else if (data != null) {
+            Log.d(TAG, "🔗 Adjust: Returning direct deep link: " + data.toString());
             sendDeepLinkData(data.toString(), callbackContext);
         } else {
+            Log.d(TAG, "🔗 Adjust: No deep link data available");
             sendDeepLinkData(null, callbackContext);
         }
     }
 
     private void sendDeepLinkData(String deepLinkData, CallbackContext callbackContext) {
-        PluginResult pluginResult = new PluginResult(Status.OK, deepLinkData);
-        pluginResult.setKeepCallback(true);
-        callbackContext.sendPluginResult(pluginResult);
+        try {
+            JSONObject result = new JSONObject();
+            result.put("deepLink", deepLinkData);
+            result.put("clickTime", clickTime);
+
+            Log.d(TAG, "🔗 Adjust: Sending deep link data to JS: " + result.toString());
+
+            PluginResult pluginResult = new PluginResult(Status.OK, result);
+            pluginResult.setKeepCallback(true);
+            callbackContext.sendPluginResult(pluginResult);
+        } catch (JSONException e) {
+            Log.e(TAG, "🔗 Adjust: Error creating deep link JSON", e);
+            callbackContext.error("Error processing deep link data");
+        }
     }
 
     @Override
     public void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        
+
         Uri data = intent.getData();
         if (data != null) {
+            Log.d(TAG, "🔗 Adjust: Received deep link through onNewIntent: " + data.toString());
             clickTime = System.currentTimeMillis();
             processDeepLinkData(data);
-            
+
             // Send the deep link data to JavaScript if callback is registered
             if (deepLinkDataCallbackContext != null) {
                 sendDeepLinkData(data.toString(), deepLinkDataCallbackContext);
@@ -1176,13 +1195,17 @@ public class AdjustCordova extends CordovaPlugin implements
 
     private void processDeepLinkData(Uri deeplink) {
         if (deeplink == null) {
+            Log.d(TAG, "🔗 Adjust: Received null deep link");
             return;
         }
+
+        Log.d(TAG, "🔗 Adjust: Processing deep link: " + deeplink.toString());
 
         Adjust.isEnabled(this.cordova.getActivity().getApplicationContext(), new OnIsEnabledListener() {
             @Override
             public void onIsEnabledRead(boolean isEnabled) {
                 if (!isEnabled) {
+                    Log.d(TAG, "🔗 Adjust: SDK is disabled, storing deep link for later");
                     deferredDeeplink = deeplink;
                     // Send deferred deep link data to JavaScript if callback is registered
                     if (deepLinkDataCallbackContext != null) {
@@ -1190,6 +1213,8 @@ public class AdjustCordova extends CordovaPlugin implements
                     }
                     return;
                 }
+
+                Log.d(TAG, "🔗 Adjust: Processing deep link with SDK");
                 // Process the deeplink
                 AdjustDeeplink adjustDeeplink = new AdjustDeeplink(deeplink);
                 Adjust.processDeeplink(adjustDeeplink, cordova.getActivity().getApplicationContext());
