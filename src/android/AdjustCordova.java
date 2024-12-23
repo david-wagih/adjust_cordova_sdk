@@ -983,7 +983,6 @@ public class AdjustCordova extends CordovaPlugin implements
             data.put("adgroup", attribution.adgroup);
             data.put("creative", attribution.creative);
             data.put("click_label", attribution.clickLabel);
-            data.put("deeplink", attribution.deeplink);
 
             attributionData.put("data", data);
 
