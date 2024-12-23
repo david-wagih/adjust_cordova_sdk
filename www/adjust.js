@@ -1,3 +1,5 @@
+var exec = require('cordova/exec');
+
 function callCordova(action) {
     var args = Array.prototype.slice.call(arguments, 1);
 
@@ -24,7 +26,7 @@ function callCordovaStringify(action) {
 }
 
 function callCordovaCallback(action, callback) {
-    var args = Array.prototype.slice.call(arguments, 2);
+    var args = Array.prototype.slice.call(arguments, 1);
 
     cordova.exec(
         callback,
@@ -45,6 +47,14 @@ function callCordovaStringifyCallback(action, data, callback) {
         action,
         [JSON.stringify(args)]
     );
+}
+
+function dispatchDeepLinkEvent(deepLink) {
+    console.log('🔗 Adjust JS: Dispatching deep link event:', deepLink);
+    var event = new CustomEvent('onAdjustDeepLinkData', {
+        detail: { deepLink: deepLink }
+    });
+    document.dispatchEvent(event);
 }
 
 var Adjust = {
@@ -283,11 +293,40 @@ var Adjust = {
     },
 
     getDeepLinkData: function(callback) {
-        if (cordova.platformId === 'android') {
-            callCordovaCallback('getDeepLinkData', callback);
-        } else {
-            callback(null);
-        }
+        console.log('🔗 Adjust JS Bridge: Getting deep link data');
+        callCordovaCallback(
+            'getDeepLinkData',
+            function(result) {
+                console.log('🔗 Adjust JS Bridge: Deep link data received:', result);
+                if (result && result.deepLink) {
+                    dispatchDeepLinkEvent(result.deepLink);
+                }
+                callback(result);
+            }
+        );
+    },
+
+    processDeepLinkData: function(callback) {
+        console.log('🔗 Adjust JS Bridge: Starting to process deep link data');
+
+        callCordovaCallback(
+            'processDeepLinkData',
+            function(result) {
+                console.log('🔗 Adjust JS Bridge: Success callback with result:', result);
+                if (result && result.deepLink) {
+                    console.log('🔗 Adjust JS Bridge: Found deep link, dispatching event');
+                    dispatchDeepLinkEvent(result.deepLink);
+                } else {
+                    console.log('🔗 Adjust JS Bridge: No deep link in result');
+                }
+                callback(result);
+            }
+        );
+    },
+
+    registerOnAppOpenAttribution: function(successCallback, errorCallback) {
+        console.log('🔗 Adjust JS: Registering app open attribution listener');
+        exec(successCallback, errorCallback, 'AdjustCordova', 'registerOnAppOpenAttribution', []);
     }
 };
 

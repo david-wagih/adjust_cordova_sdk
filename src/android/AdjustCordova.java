@@ -40,6 +40,7 @@ public class AdjustCordova extends CordovaPlugin implements
     private CallbackContext sessionTrackingFailedCallbackContext;
     private CallbackContext deferredDeeplinkCallbackContext;
     private CallbackContext deepLinkDataCallbackContext;
+    private CallbackContext attributionDataListener = null;
 
     @Override
     public boolean execute(String action, final JSONArray args, CallbackContext callbackContext) throws JSONException {
@@ -194,6 +195,8 @@ public class AdjustCordova extends CordovaPlugin implements
             deepLinkDataCallbackContext = callbackContext;
             executeGetDeepLinkData(callbackContext);
             return true;
+        } else if (action.equals("registerOnAppOpenAttribution")) {
+            return registerOnAppOpenAttribution(callbackContext);
         } else {
             Logger logger = (Logger) AdjustFactory.getLogger();
             logger.error(String.format("[AdjustCordova]: Invalid call (%s).", action));
@@ -967,14 +970,34 @@ public class AdjustCordova extends CordovaPlugin implements
 
     @Override
     public void onAttributionChanged(AdjustAttribution attribution) {
-        if (attributionCallbackContext == null) {
-            return;
-        }
+        try {
+            JSONObject attributionData = new JSONObject();
+            attributionData.put("status", "success");
+            attributionData.put("type", "attribution");
 
-        JSONObject attributionJsonData = new JSONObject(getAttributionMap(attribution));
-        PluginResult pluginResult = new PluginResult(Status.OK, attributionJsonData);
-        pluginResult.setKeepCallback(true);
-        attributionCallbackContext.sendPluginResult(pluginResult);
+            JSONObject data = new JSONObject();
+            data.put("tracker_token", attribution.trackerToken);
+            data.put("tracker_name", attribution.trackerName);
+            data.put("network", attribution.network);
+            data.put("campaign", attribution.campaign);
+            data.put("adgroup", attribution.adgroup);
+            data.put("creative", attribution.creative);
+            data.put("click_label", attribution.clickLabel);
+            data.put("deeplink", attribution.deeplink);
+
+            attributionData.put("data", data);
+
+            Log.d(TAG, "🔗 Adjust: Sending attribution data to JS: " + attributionData.toString());
+
+            // Send to both the deep link callback and attribution callback
+            if (attributionDataListener != null) {
+                PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, attributionData);
+                pluginResult.setKeepCallback(true);
+                attributionDataListener.sendPluginResult(pluginResult);
+            }
+        } catch (JSONException e) {
+            Log.e(TAG, "🔗 Adjust: Error creating attribution JSON", e);
+        }
     }
 
     @Override
@@ -1220,5 +1243,11 @@ public class AdjustCordova extends CordovaPlugin implements
                 Adjust.processDeeplink(adjustDeeplink, cordova.getActivity().getApplicationContext());
             }
         });
+    }
+
+    private boolean registerOnAppOpenAttribution(CallbackContext callbackContext) {
+        Log.d(TAG, "🔗 Adjust: Registering app open attribution listener");
+        this.attributionDataListener = callbackContext;
+        return true;
     }
 }
