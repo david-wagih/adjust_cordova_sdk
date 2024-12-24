@@ -41,9 +41,12 @@ public class AdjustCordova extends CordovaPlugin implements
     private CallbackContext deferredDeeplinkCallbackContext;
     private CallbackContext deepLinkDataCallbackContext;
     private CallbackContext attributionDataListener = null;
+    private CallbackContext processDeepLinkCallback;
 
     @Override
     public boolean execute(String action, final JSONArray args, CallbackContext callbackContext) throws JSONException {
+
+      deepLinkDataCallbackContext = callbackContext;
 
         if (action.equals(COMMAND_INIT_SDK)) {
             executeInitSdk(args);
@@ -128,9 +131,15 @@ public class AdjustCordova extends CordovaPlugin implements
                 Adjust.trackMeasurementConsent(isEnabled);
             }
         } else if (action.equals(COMMAND_PROCESS_DEEPLINK)) {
-            if (executeProcessDeeplink(args) == false) {
-                return false;
+            this.processDeepLinkCallback = callbackContext;
+            // Check for existing deep link in current intent
+            Activity activity = cordova.getActivity();
+            Intent intent = activity.getIntent();
+            Uri data = intent.getData();
+            if (data != null) {
+                processDeepLinkData(data, callbackContext);
             }
+            return true;
         } else if (action.equals(COMMAND_PROCESS_AND_RESOLVE_DEEPLINK)) {
             if (executeProcessAndResolveDeeplink(args, callbackContext) == false) {
                 return false;
@@ -191,9 +200,25 @@ public class AdjustCordova extends CordovaPlugin implements
             PluginResult pluginResult = new PluginResult(Status.OK, "");
             pluginResult.setKeepCallback(true);
             callbackContext.sendPluginResult(pluginResult);
-        } else if (action.equals(COMMAND_GET_DEEP_LINK_DATA)) {
-            deepLinkDataCallbackContext = callbackContext;
-            executeGetDeepLinkData(callbackContext);
+        } else if (action.equals("processDeepLinkData")) {
+            // Store the callback context for later use
+            this.processDeepLinkCallback = callbackContext;
+
+            // Check for existing deep link in current intent
+            Activity activity = cordova.getActivity();
+            Intent intent = activity.getIntent();
+            Uri data = intent.getData();
+
+            if (data != null) {
+                Log.d(TAG, "🔗 Adjust: Processing existing deep link: " + data.toString());
+                processDeepLinkData(data, callbackContext);
+            } else {
+                Log.d(TAG, "🔗 Adjust: No existing deep link found, keeping callback for future deep links");
+                // Don't send result yet, keep callback for future deep links
+                PluginResult pluginResult = new PluginResult(Status.NO_RESULT);
+                pluginResult.setKeepCallback(true);
+                callbackContext.sendPluginResult(pluginResult);
+            }
             return true;
         } else if (action.equals("registerOnAppOpenAttribution")) {
             return registerOnAppOpenAttribution(callbackContext);
@@ -1206,40 +1231,62 @@ public class AdjustCordova extends CordovaPlugin implements
         if (data != null) {
             Log.d(TAG, "🔗 Adjust: Received deep link through onNewIntent: " + data.toString());
             clickTime = System.currentTimeMillis();
-            processDeepLinkData(data, deepLinkDataCallbackContext);
+
+            // Check if we have a stored callback
+            if (processDeepLinkCallback != null) {
+                Log.d(TAG, "🔗 Adjust: Processing deep link with stored callback");
+                processDeepLinkData(data, processDeepLinkCallback);
+            } else {
+                Log.d(TAG, "🔗 Adjust: No callback stored for deep link processing");
+            }
         }
     }
 
     private void processDeepLinkData(Uri deeplink, CallbackContext callbackContext) {
         if (deeplink == null || callbackContext == null) {
-            Log.d(TAG, "🔗 Adjust: Received null deep link or callback context");
+            Log.d(TAG, "🔗 Adjust: Null deep link or callback context");
             return;
         }
 
-        Log.d(TAG, "🔗 Adjust: Processing deep link: " + deeplink);
+        try {
+            Log.d(TAG, "🔗 Adjust: Processing deep link: " + deeplink.toString());
 
-        Adjust.isEnabled(this.cordova.getActivity().getApplicationContext(), isEnabled -> {
-            if (!isEnabled) {
-                Log.d(TAG, "🔗 Adjust: SDK is disabled, storing deep link for later");
-                deferredDeeplink = deeplink;
-                // Send deferred deep link data to JavaScript
-                sendDeepLinkData(deeplink.toString(), callbackContext);
-                return;
-            }
+            JSONObject result = new JSONObject();
+            result.put("deepLink", deeplink.toString());
+            result.put("clickTime", clickTime);
+            result.put("status", "success");
 
-            Log.d(TAG, "🔗 Adjust: Processing deep link with SDK");
-            // Process the deeplink
+            // Process the deeplink with Adjust SDK
             AdjustDeeplink adjustDeeplink = new AdjustDeeplink(deeplink);
             Adjust.processDeeplink(adjustDeeplink, cordova.getActivity().getApplicationContext());
 
-            // Send the processed deep link data back to JavaScript
-            sendDeepLinkData(deeplink.toString(), callbackContext);
-        });
+            PluginResult pluginResult = new PluginResult(Status.OK, result);
+            pluginResult.setKeepCallback(true);
+            callbackContext.sendPluginResult(pluginResult);
+
+            Log.d(TAG, "🔗 Adjust: Successfully processed deep link");
+        } catch (Exception e) {
+            Log.e(TAG, "🔗 Adjust: Error processing deep link", e);
+            callbackContext.error("Error processing deep link: " + e.getMessage());
+        }
     }
 
     private boolean registerOnAppOpenAttribution(CallbackContext callbackContext) {
         Log.d(TAG, "🔗 Adjust: Registering app open attribution listener");
         this.attributionDataListener = callbackContext;
         return true;
+    }
+
+    // Add cleanup method
+    private void cleanupDeepLinkCallback() {
+        if (processDeepLinkCallback != null) {
+            processDeepLinkCallback = null;
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        cleanupDeepLinkCallback();
     }
 }

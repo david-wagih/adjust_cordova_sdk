@@ -1,3 +1,4 @@
+cordova.define("com.adjust.sdk.Adjust", function(require, exports, module) {
     function callCordova(action) {
         var args = Array.prototype.slice.call(arguments, 1);
     
@@ -331,3 +332,4 @@
     module.exports = Adjust;
     
     
+});
