@@ -1,6 +1,3 @@
-cordova.define("com.adjust.sdk.Adjust", function(require, exports, module) {
-    var exec = require('cordova/exec');
-    
     function callCordova(action) {
         var args = Array.prototype.slice.call(arguments, 1);
     
@@ -333,5 +330,4 @@ cordova.define("com.adjust.sdk.Adjust", function(require, exports, module) {
     
     module.exports = Adjust;
     
-    });
     
