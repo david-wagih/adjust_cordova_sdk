@@ -442,7 +442,7 @@ public class AdjustCordova extends CordovaPlugin implements
         Intent intent = activity.getIntent();
         Uri data = intent.getData();
         if (data != null) {
-            processDeepLinkData(data);
+            processDeepLinkData(data, deepLinkDataCallbackContext);
             if (deepLinkDataCallbackContext != null) {
                 sendDeepLinkData(data.toString(), deepLinkDataCallbackContext);
             }
@@ -1206,45 +1206,35 @@ public class AdjustCordova extends CordovaPlugin implements
         if (data != null) {
             Log.d(TAG, "🔗 Adjust: Received deep link through onNewIntent: " + data.toString());
             clickTime = System.currentTimeMillis();
-            processDeepLinkData(data);
-
-            // Send the deep link data to JavaScript if callback is registered
-            if (deepLinkDataCallbackContext != null) {
-                sendDeepLinkData(data.toString(), deepLinkDataCallbackContext);
-            }
+            processDeepLinkData(data, deepLinkDataCallbackContext);
         }
     }
 
-    private void processDeepLinkData(Uri deeplink) {
-        if (deeplink == null) {
-            Log.d(TAG, "🔗 Adjust: Received null deep link");
+    private void processDeepLinkData(Uri deeplink, CallbackContext callbackContext) {
+        if (deeplink == null || callbackContext == null) {
+            Log.d(TAG, "🔗 Adjust: Received null deep link or callback context");
             return;
         }
 
-        Log.d(TAG, "🔗 Adjust: Processing deep link: " + deeplink.toString());
+        Log.d(TAG, "🔗 Adjust: Processing deep link: " + deeplink);
 
-        Adjust.isEnabled(this.cordova.getActivity().getApplicationContext(), new OnIsEnabledListener() {
-            @Override
-            public void onIsEnabledRead(boolean isEnabled) {
-                if (!isEnabled) {
-                    Log.d(TAG, "🔗 Adjust: SDK is disabled, storing deep link for later");
-                    deferredDeeplink = deeplink;
-                    // Send deferred deep link data to JavaScript if callback is registered
-                    if (deepLinkDataCallbackContext != null) {
-                        sendDeepLinkData(deeplink.toString(), deepLinkDataCallbackContext);
-                    }
-                    return;
-                }
-
-                Log.d(TAG, "🔗 Adjust: Processing deep link with SDK");
-                // Process the deeplink
-                AdjustDeeplink adjustDeeplink = new AdjustDeeplink(deeplink);
-                Adjust.processDeeplink(adjustDeeplink, cordova.getActivity().getApplicationContext());
+        Adjust.isEnabled(this.cordova.getActivity().getApplicationContext(), isEnabled -> {
+            if (!isEnabled) {
+                Log.d(TAG, "🔗 Adjust: SDK is disabled, storing deep link for later");
+                deferredDeeplink = deeplink;
+                // Send deferred deep link data to JavaScript
+                sendDeepLinkData(deeplink.toString(), callbackContext);
+                return;
             }
+
+            Log.d(TAG, "🔗 Adjust: Processing deep link with SDK");
+            // Process the deeplink
+            AdjustDeeplink adjustDeeplink = new AdjustDeeplink(deeplink);
+            Adjust.processDeeplink(adjustDeeplink, cordova.getActivity().getApplicationContext());
+
+            // Send the processed deep link data back to JavaScript
+            sendDeepLinkData(deeplink.toString(), callbackContext);
         });
-        PluginResult pluginResult = new PluginResult(Status.OK, deeplink);
-        pluginResult.setKeepCallback(true);
-        callbackContext.sendPluginResult(pluginResult);
     }
 
     private boolean registerOnAppOpenAttribution(CallbackContext callbackContext) {
