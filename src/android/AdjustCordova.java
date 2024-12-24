@@ -1242,6 +1242,9 @@ public class AdjustCordova extends CordovaPlugin implements
                 Adjust.processDeeplink(adjustDeeplink, cordova.getActivity().getApplicationContext());
             }
         });
+        PluginResult pluginResult = new PluginResult(Status.OK, deeplink);
+        pluginResult.setKeepCallback(true);
+        callbackContext.sendPluginResult(pluginResult);
     }
 
     private boolean registerOnAppOpenAttribution(CallbackContext callbackContext) {

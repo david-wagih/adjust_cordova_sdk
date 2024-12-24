@@ -299,8 +299,8 @@ cordova.define("com.adjust.sdk.Adjust", function(require, exports, module) {
                 'getDeepLinkData',
                 function(result) {
                     console.log('🔗 Adjust JS Bridge: Deep link data received:', result);
-                    if (result && result.deepLink) {
-                        dispatchDeepLinkEvent(result.deepLink);
+                    if (result) {
+                        dispatchDeepLinkEvent(result);
                     }
                     callback(result);
                 }
@@ -314,9 +314,9 @@ cordova.define("com.adjust.sdk.Adjust", function(require, exports, module) {
                 'processDeepLinkData',
                 function(result) {
                     console.log('🔗 Adjust JS Bridge: Success callback with result:', result);
-                    if (result && result.deepLink) {
+                    if (result) {
                         console.log('🔗 Adjust JS Bridge: Found deep link, dispatching event');
-                        dispatchDeepLinkEvent(result.deepLink);
+                        dispatchDeepLinkEvent(result);
                     } else {
                         console.log('🔗 Adjust JS Bridge: No deep link in result');
                     }
